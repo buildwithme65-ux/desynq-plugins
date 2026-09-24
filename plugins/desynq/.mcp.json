@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "desynq": {
+      "type": "http",
+      "url": "https://desynq-cleanup-6437901920.us-central1.run.app/mcp",
+      "timeout": 600000
+    }
+  }
+}

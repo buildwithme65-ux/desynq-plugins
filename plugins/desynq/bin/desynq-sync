@@ -1,0 +1,81 @@
+#!/bin/sh
+# Keep the Desynq server's copy of a project in step with this folder.
+#
+#   desynq-sync init <ticket> [dir]   download the project into dir (default
+#                                     ./desynq_<project>), or refresh the
+#                                     ticket of one that is already there
+#   desynq-sync [dir]                 upload what changed since the server's copy
+#
+# Only lib/, assets/, pubspec.yaml, analysis_options.yaml and
+# test/screens_list.dart are ever sent.
+set -eu
+
+URL="${DESYNQ_CLEANUP_URL:-https://desynq-cleanup-6437901920.us-central1.run.app}"
+
+die() { echo "desynq-sync: $*" >&2; exit 1; }
+
+sha() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
+}
+
+session_of() {  # the project a ticket belongs to, asked of the server
+  curl -fsS -H "X-Desynq-Ticket: $1" "$URL/sync/info" 2>/dev/null \
+    | sed -n 's/.*"project": *"\([^"]*\)".*/\1/p'
+}
+
+if [ "${1:-}" = init ]; then
+  ticket="${2:-}"; [ -n "$ticket" ] || die "usage: desynq-sync init <ticket> [dir]"
+  session=$(session_of "$ticket"); [ -n "$session" ] || die "that ticket is not valid or has expired"
+  dir="${3:-desynq_$session}"
+  mkdir -p "$dir/.desynq"
+  printf '%s\n' "$ticket" > "$dir/.desynq/ticket"
+  if [ ! -f "$dir/pubspec.yaml" ]; then
+    tmp=$(mktemp)
+    curl -fsS -H "X-Desynq-Ticket: $ticket" "$URL/sync/project.zip" -o "$tmp" \
+      || die "download failed"
+    (cd "$dir" && unzip -qo "$tmp")
+    rm -f "$tmp"
+    echo "project ready in $dir"
+  else
+    echo "ticket refreshed for $dir"
+  fi
+  exit 0
+fi
+
+dir="${1:-.}"
+[ -f "$dir/.desynq/ticket" ] || die "no Desynq project in $dir (run desynq-sync init first)"
+ticket=$(cat "$dir/.desynq/ticket")
+cd "$dir"
+
+remote=$(mktemp); local_=$(mktemp); changed=$(mktemp); deleted=$(mktemp); pack=$(mktemp)
+trap 'rm -f "$remote" "$local_" "$changed" "$deleted" "$pack"' EXIT
+
+curl -fsS -H "X-Desynq-Ticket: $ticket" "$URL/sync/manifest" -o "$remote" \
+  || die "server unreachable or ticket expired (call start again for a new one)"
+
+{ find lib assets -type f 2>/dev/null
+  for f in pubspec.yaml analysis_options.yaml test/screens_list.dart; do
+    [ -f "$f" ] && echo "$f"
+  done; } | LC_ALL=C sort | while IFS= read -r f; do sha "$f"; done > "$local_"
+
+# Lines only in the local list are new or changed; paths only on the server
+# were deleted here.
+LC_ALL=C sort "$local_" | comm -23 - "$(LC_ALL=C sort "$remote" > "$remote.s"; echo "$remote.s")" \
+  | sed 's/^[0-9a-f]*  //' > "$changed"
+sed 's/^[0-9a-f]*  //' "$local_" | LC_ALL=C sort > "$local_.p"
+sed 's/^[0-9a-f]*  //' "$remote" | LC_ALL=C sort | comm -23 - "$local_.p" > "$deleted"
+rm -f "$remote.s" "$local_.p"
+
+n=$(wc -l < "$changed" | tr -d ' '); d=$(wc -l < "$deleted" | tr -d ' ')
+if [ "$n" = 0 ] && [ "$d" = 0 ]; then echo "in sync"; exit 0; fi
+
+cp "$deleted" .desynq-deleted
+echo .desynq-deleted >> "$changed"
+# bsdtar (macOS) takes no file operand before -T, so the list carries both.
+# COPYFILE_DISABLE stops it adding a ._<name> twin for every file, which the
+# server would otherwise compile as Dart.
+COPYFILE_DISABLE=1 tar -czf "$pack" -T "$changed"
+rm -f .desynq-deleted
+curl -fsS -X POST -H "X-Desynq-Ticket: $ticket" -H "Content-Type: application/gzip" \
+  --data-binary "@$pack" "$URL/sync/upload" >/dev/null || die "upload failed"
+echo "synced: $n changed, $d removed"
