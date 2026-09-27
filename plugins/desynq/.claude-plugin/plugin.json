@@ -1,6 +1,6 @@
 {
   "name": "desynq",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Turn a Desynq Figma export into clean, production Flutter code, checked screen by screen against the design.",
   "author": { "name": "Desynq" },
   "homepage": "https://trydesynq.web.app"

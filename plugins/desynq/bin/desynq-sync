@@ -31,7 +31,10 @@ if [ "${1:-}" = init ]; then
   printf '%s\n' "$ticket" > "$dir/.desynq/ticket"
   if [ ! -f "$dir/pubspec.yaml" ]; then
     tmp=$(mktemp)
-    curl -fsS -H "X-Desynq-Ticket: $ticket" "$URL/sync/project.zip" -o "$tmp" \
+    # The folder we run in goes along, so the website's "Open in Claude Code"
+    # can open right here without asking the user for a path.
+    curl -fsS -H "X-Desynq-Ticket: $ticket" -H "X-Desynq-Folder: $(pwd)" \
+      "$URL/sync/project.zip" -o "$tmp" \
       || die "download failed"
     (cd "$dir" && unzip -qo "$tmp")
     rm -f "$tmp"
