@@ -3,6 +3,8 @@ name: cleanup
 description: Clean up a Desynq project into production Flutter code. Use when the user runs /desynq:cleanup or asks to clean up a Desynq export.
 argument-hint: <project id or project page URL>
 disable-model-invocation: true
+model: claude-opus-5-5
+effort: medium
 allowed-tools:
   - mcp__plugin_desynq_desynq__start
   - mcp__plugin_desynq_desynq__naming

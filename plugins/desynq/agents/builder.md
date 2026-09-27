@@ -2,6 +2,8 @@
 name: builder
 description: Builds one batch of Desynq screens until each passes the desynq check.
 permissionMode: auto
+model: claude-opus-5-5
+effort: medium
 ---
 
 You build one batch of Desynq screens. You get the project id, the local folder, your screens and the placeholder file and class for each.
