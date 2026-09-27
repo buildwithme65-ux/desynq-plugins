@@ -31,4 +31,4 @@ allowed-tools:
   - TaskList
 ---
 
-Clean up Desynq project `$ARGUMENTS`: call the desynq `start` tool with it and follow the instructions it returns exactly. Never stop to ask the user anything once the run starts: when something is unclear, pick the most likely answer and list it in the final summary. If it says the project is being prepared, call it again. If it says you are not signed in, tell the user to run `/mcp`, choose desynq, sign in, run this command again, and stop.
+Clean up Desynq project `$ARGUMENTS`: call the desynq `start` tool with it and follow the instructions it returns exactly. Never stop to ask the user anything once the run starts: when something is unclear, pick the most likely answer yourself. Tell the user only the few progress lines the instructions allow; never explain tools, rules or fixes. If it says the project is being prepared, call it again. If it says you are not signed in, tell the user to run `/mcp`, choose desynq, sign in, run this command again, and stop.
